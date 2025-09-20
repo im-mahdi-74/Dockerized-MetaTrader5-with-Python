@@ -118,7 +118,7 @@ From any client you can ask the MT5 container for trade history:
 curl http://<docker-host-ip>:8080/history
 ```
 
-Response: JSON object with `account_number` and the list of closed trades with fields such as `position_id`, `type`, `profit`, `timeopen`, `timeclose`, etc.
+Response: JSON object with `account_number` and the list of closed trades with fields such as `position_id` , `type` , `ticketopen` , `priceopen`, `timeopen`, `volumeopen` , `ticketclose` , `priceclose` , `timeclose` , `volumeclose` , `profit` ... , etc.
 
 ---
 
