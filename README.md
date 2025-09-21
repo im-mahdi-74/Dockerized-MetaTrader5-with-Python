@@ -39,7 +39,6 @@ Docker Hub: [https://hub.docker.com/repository/docker/immahdi/mt5-python/general
 
 Download `meta.zip` (place in repo root):
 
-```
 - [meta.zip](https://drive.google.com/uc?export=download&id=1Uiwa4GjQMksct8ZGqIvhg_WdIGuvaiJu)
 
 ---
