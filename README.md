@@ -21,7 +21,7 @@
 * Run one or more MT5 containers (or hosts) that run `streamer.py` and send their data to the Hub.
 * Use a viewer client to connect to the Hub and receive live data; use `/history` on the MT5 container to fetch trade history.
 
-Docker Hub: [https://hub.docker.com/repository/docker/immahdi/mt5-python/general](https://hub.docker.com/repository/docker/immahdi/mt5-python/general)
+Docker Hub: [[DockerHub/mt5-python](https://hub.docker.com/r/immahdi/mt5-python)]
 
 ---
 
