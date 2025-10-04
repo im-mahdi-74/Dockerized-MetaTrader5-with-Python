@@ -1,0 +1,16 @@
+# Large binaries
+meta.zip
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+*.env
+
+# IDE and OS specific
+.vscode/
+.idea/
+*.DS_Store

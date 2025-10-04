@@ -1,39 +1,40 @@
 # Dockerized MetaTrader 5 with Python Data Bridge
 
-**This repository provides everything needed to run a portable MetaTrader 5 (MT5) inside Docker and expose MT5 data to your apps via a WebSocket stream and a REST trade-history API.**
+**This repository provides everything needed to run a portable MetaTrader 5 (MT5) inside a Docker container and expose its full functionality to your apps via a WebSocket stream and a secure, general-purpose RPC API Gateway.**
 
----
+-----
 
 ## What this repo does
 
-* Runs a **portable MT5 terminal** inside a Windows container.
-* Streams live account information (balance, equity, open trades, etc.) from each MT5 instance using `streamer.py` to a central **WebSocket Hub (router)**.
-* Exposes a **REST API** (`reporter.py`) that returns the full trade history on demand (HTTP `/history`).
-* Intended audience: company or developers and algorithmic traders who want programmatic access to MT5 data without running the terminal locally.
+- Runs a **portable MT5 terminal** inside a Windows container.
+- Streams live account information (balance, equity, open trades, etc.) from the MT5 instance using `streamer.py` to a central **WebSocket Hub**.
+- Exposes a **secure RPC (Remote Procedure Call) API Gateway** (`api_gateway.py`) that allows you to execute almost any function from the Python `MetaTrader5` library remotely, protected by an API key.
+- Intended audience: Developers and algorithmic traders who want full, programmatic access to MT5 data and trading functions without running the terminal on their local machine.
 
----
+-----
 
 ## Quick overview (short)
 
-* Build image locally: `docker build -t immahdi/mt5-python:latest .`
-* Or pull the prebuilt image from Docker Hub: `docker pull immahdi/mt5-python:latest`
-* Run a central WebSocket Hub on a server (see `websocket_hub.py`).
-* Run one or more MT5 containers (or hosts) that run `streamer.py` and send their data to the Hub.
-* Use a viewer client to connect to the Hub and receive live data; use `/history` on the MT5 container to fetch trade history.
+- Build the image locally: `docker build -t immahdi/mt5-python:latest .`
+- Or pull a prebuilt image from Docker Hub: `docker pull immahdi/mt5-python:latest`
+- Run a central WebSocket Hub on a server (see `websocket_hub.py`).
+- Run one or more MT5 containers that connect to the Hub and the API Gateway.
+- Use a client to connect to the WebSocket Hub for live data, and send authenticated requests to the `/rpc` endpoint on the MT5 container to execute any command.
 
-Docker Hub: [[DockerHub/mt5-python](https://hub.docker.com/r/immahdi/mt5-python)]
+Docker Hub: [DockerHub/mt5-python](https://hub.docker.com/r/immahdi/mt5-python)
 
----
+-----
 
 ## Files in repository (root) — what each file is for
 
-* **Dockerfile** — builds the Windows container image with portable MT5 and the Python services.
-* **streamer.py** — inside-container service that reads MT5 account state and open trades and forwards JSON messages to the WebSocket Hub (as a producer/streamer).
-* **reporter.py** — exposes a small REST API (port `8080`) with an endpoint `/history` that returns closed-trade history as JSON.
-* **websocket\_hub.py** — the central WebSocket Hub/Router. It accepts connections from multiple streamers and multiple viewers and broadcasts streamer messages to viewers. **Place this file in the repository root and run it on the machine you want to host the hub.**
-* **start.ps1** — optional Windows PowerShell startup script used inside the container to launch services.
-* **meta.zip** — (large) the portable MetaTrader 5 files. *Not checked in by default.* Download and place this file in the repo root before building the image if you plan to build locally. Public download link provided below.
-* **python-3.11.4-amd64.exe** — included installer . This is provided to install Python inside the container if needed.
+- **Dockerfile** — builds the Windows container image with portable MT5 and the Python services.
+- **src/streamer.py** — The inside-container service that reads MT5 account state and open trades and forwards JSON messages to the WebSocket Hub.
+- **src/api_gateway.py** — Exposes a secure, general-purpose RPC API on port `8080`. It listens for requests at the `/rpc` endpoint and executes `MetaTrader5` functions dynamically.
+- **src/start.ps1** — The PowerShell startup script used inside the container to launch both the `streamer` and `api_gateway` services.
+- **websocket_hub/websocket_hub.py** — The central WebSocket Hub/Router. It accepts connections from multiple streamers and viewers and broadcasts data. **Run this on the machine you want to host the hub.**
+- **tests/test_api_connection.py** — An integration test script to verify that the API Gateway is running correctly and responding to requests.
+- **meta.zip** — (large) The portable MetaTrader 5 files. *Not checked in by default.* You must download this file and place it in the repo root before building the image locally.
+- **python-3.11.4-amd64.exe** — The Python installer used to set up the environment inside the container.
 
 > **Note:** `meta.zip` you should download the file and place it at the project root before building locally.
 
@@ -41,7 +42,7 @@ Download `meta.zip` (place in repo root):
 
 - [meta.zip](https://drive.google.com/uc?export=download&id=1Uiwa4GjQMksct8ZGqIvhg_WdIGuvaiJu)
 
----
+-----
 
 ## How to run (recommended workflow)
 
@@ -51,17 +52,17 @@ Download `meta.zip` (place in repo root):
 git clone https://github.com/im-mahdi-74/Dockerized-MetaTrader5-with-Python.git
 cd Dockerized-MetaTrader5-with-Python
 python -m pip install --user websockets
-python websocket_hub.py
+python websocket_hub/websocket_hub.py
 ```
 
-Hub listens on `ws://0.0.0.0:8765` by default.
+The Hub listens on `ws://0.0.0.0:8765` by default.
 
 ### 2) Build the Docker image locally (optional)
 
-If you prefer to build the image yourself (you must have `meta.zip` at repository root):
+If you prefer to build the image yourself (you must have `meta.zip` and the python installer at the repository root):
 
 ```bash
-# from repository root where Dockerfile and meta.zip are located
+# from repository root where Dockerfile is located
 docker build -t immahdi/mt5-python:latest .
 ```
 
@@ -80,78 +81,79 @@ docker run -d --name my-mt5-bot \
   -e MT5_PASSWORD="YOUR_ACCOUNT_PASSWORD" \
   -e MT5_SERVER="YOUR_MT5_SERVER_NAME" \
   -e WEBSOCKET_URI="ws://<hub-server-ip>:8765" \
+  -e API_KEY="YOUR_SUPER_SECRET_KEY" \
   immahdi/mt5-python:latest
 ```
 
-* Set `WEBSOCKET_URI` to the Hub address where `websocket_hub.py` is running.
-* Each MT5 instance/container that should stream live account and open-trades data **must run `streamer.py`** (the image’s startup script runs it automatically if configured). If you are running manually inside the container, start `streamer.py` so the container becomes a streamer for the Hub.
+- Set `WEBSOCKET_URI` to the Hub address.
+- Set a unique and secret `API_KEY` which will be used to authenticate your RPC requests.
 
 ### 4) View live data (viewer client)
 
-Run this Python snippet on the viewer machine to connect and receive live messages from the Hub:
+Run the Python snippet provided in the original `README.md` to connect to the WebSocket Hub and see the live data stream.
 
-```python
-import asyncio
-import websockets
-import json
+### 5) Execute MT5 Functions via RPC API
 
-WEBSOCKET_URI = "ws://<hub-server-ip>:8765"
+You can execute almost any MT5 function by sending a `POST` request to the `/rpc` endpoint.
 
-async def view_stream():
-    async with websockets.connect(WEBSOCKET_URI) as websocket:
-        await websocket.send(json.dumps({"type": "viewer_hello"}))
-        print("Connected as viewer. Receiving live data...")
-        async for message in websocket:
-            print(json.dumps(json.loads(message), indent=2))
-
-asyncio.run(view_stream())
-```
-
-> Important: for each account you want to stream, the corresponding MT5 container must be running `streamer.py` so it connects to the Hub as a `streamer_hello` producer.
-
-### 5) Fetch trade history (HTTP)
-
-From any client you can ask the MT5 container for trade history:
+**Example 1: Get Account Info**
 
 ```bash
-curl http://<docker-host-ip>:8080/history
+curl -X POST http://<docker-host-ip>:8080/rpc \
+-H "Content-Type: application/json" \
+-H "X-API-KEY: YOUR_SUPER_SECRET_KEY" \
+-d '{
+    "function_name": "account_info"
+}'
 ```
 
-Response: JSON object with `account_number` and the list of closed trades with fields such as `position_id` , `type` , `ticketopen` , `priceopen`, `timeopen`, `volumeopen` , `ticketclose` , `priceclose` , `timeclose` , `volumeclose` , `profit` ... , etc.
+**Example 2: Get Trade History for the last 30 days**
 
----
+```bash
+curl -X POST http://<docker-host-ip>:8080/rpc \
+-H "Content-Type: application/json" \
+-H "X-API-KEY: YOUR_SUPER_SECRET_KEY" \
+-d '{
+    "function_name": "history_deals_get",
+    "args": [1757000000, 1759600000]
+}'
+```
+
+The response is a JSON object with `status`, `function_name`, and a `data` field containing the formatted result from MetaTrader 5.
+
+-----
 
 ## Networking & ports
 
-* WebSocket Hub: `8765` (TCP)
-* REST API (reporter): `8080` (HTTP)
+- WebSocket Hub: `8765` (TCP)
+- RPC API Gateway: `8080` (HTTP)
 
-Make sure these ports are reachable between the Hub and MT5 containers/hosts and between viewers and the Hub.
+Ensure firewall rules allow traffic on these ports between your components.
 
----
+-----
 
 ## Hardware requirements
 
-* **Minimum:** 2 GB RAM, 1 vCPU
-* **Recommended:** 3 GB RAM, 2 vCPU
+- **Minimum:** 2 GB RAM, 1 vCPU
+- **Recommended:** 3 GB RAM, 2 vCPU
 
----
+-----
 
 ## Contacts & contribution
 
 If you have issues or want to contribute, please reach out:
 
-* Telegram: `@immahdi74`
-* LinkedIn: https://www.linkedin.com/in/immahdi74
-* Email: mahdi.mosavi.nsa@gmail.com
+- Telegram: `@immahdi74`
+- LinkedIn: [https://www.linkedin.com/in/immahdi74](https://www.linkedin.com/in/immahdi74)
+- Email: mahdi.mosavi.nsa@gmail.com
 
-Contributions are welcome — open a PR or open an issue.
+Contributions are welcome — open a PR or an issue.
 
----
+-----
 
 ## License
 
 This project is released under the MIT License.
 
----
+-----
 
